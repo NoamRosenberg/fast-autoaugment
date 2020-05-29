@@ -74,7 +74,7 @@ def eval_tta(config, augment):
     C.get()
     C.get().conf = config
     cv_ratio_test, cv_fold, save_path = augment['cv_ratio_test'], augment['cv_fold'], augment['save_path']
-
+    print(augment)
     # setup - provided augmentation rules
     C.get()['aug'] = policy_decoder(augment, augment['num_policy'], augment['num_op'])
 
@@ -235,6 +235,7 @@ if __name__ == '__main__':
             space['level_%d_%d' % (i, j)] = hp.uniform('level_%d_ %d' % (i, j), 0.0, 1.0)
 
     def eval_t(augs):
+        print(augs)
         return eval_tta(copy.deepcopy(copied_c), augs)
 
     final_policy_set = []
@@ -272,8 +273,9 @@ if __name__ == '__main__':
             }
             num_samples = 4 if args.smoke_test else args.num_search
             ray.init(num_cpus=1, num_gpus=1)
+            print(aug_config)
             results = run(eval_t, search_alg=algo, config=aug_config, num_samples=num_samples, resources_per_trial={'gpu': 1}, stop={'training_iteration': args.num_policy})
-            print()
+
             # results = [x for x in results if x.last_result is not None]
             # results = sorted(results, key=lambda x: x.last_result[reward_attr], reverse=True)
             dataframe = results.dataframe().sort_values(reward_attr, ascending=False)
@@ -282,10 +284,15 @@ if __name__ == '__main__':
             # for result in results:
             #     total_computation += result.last_result['elapsed_time']
 
-            for result in results[:num_result_per_cv]:
-                final_policy = policy_decoder(result.config, args.num_policy, args.num_op)
+            for i in range(num_result_per_cv):
+                config_dict = dataframe.loc[i].filter(like='config').to_dict()
+                new_keys = [x.replace('config/', '') for x in config_dict.keys()]
+                new_config_dict = {}
+                for key in new_keys:
+                    new_config_dict[key] = config_dict['config/' + key]
+                final_policy = policy_decoder(new_config_dict, args.num_policy, args.num_op)
                 logger.info('loss=%.12f top1_valid=%.4f %s' % (
-                result.last_result['minus_loss'], result.last_result['top1_valid'], final_policy))
+                dataframe.loc[i]['minus_loss'].item(), dataframe.loc[i]['top1_valid'].item(), final_policy))
 
                 final_policy = remove_deplicates(final_policy)
                 final_policy_set.extend(final_policy)
