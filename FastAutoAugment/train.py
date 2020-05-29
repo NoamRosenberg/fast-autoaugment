@@ -188,34 +188,42 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
 
     result = OrderedDict()
     epoch_start = 1
+    #TODO: change only eval=False when without save_path ??
     if save_path != 'test.pth':     # and is_master: --> should load all data(not able to be broadcasted)
-        if save_path and os.path.exists(save_path):
-            logger.info('%s file found. loading...' % save_path)
-            data = torch.load(save_path)
-            key = 'model' if 'model' in data else 'state_dict'
+        if save_path and not os.path.exists(save_path):
+            import torch.utils.model_zoo as model_zoo
+            model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth',
+                               model_dir=os.path.join(os.getcwd(), 'FastAutoAugment/models'))
+            if C.get()['dataset'] == 'cifar10':
+                data = torch.load(save_path)
+                data.pop('fc.weight')
+                data.pop('fc.bias')
+                model_dict = model.state_dict()
+                model_dict.update(data)
+                model.load_state_dict(model_dict)
+                torch.save(model_dict, save_path)
 
-            if 'epoch' not in data:
-                model.load_state_dict(data)
-            else:
-                logger.info('checkpoint epoch@%d' % data['epoch'])
-                if not isinstance(model, (DataParallel, DistributedDataParallel)):
-                    model.load_state_dict({k.replace('module.', ''): v for k, v in data[key].items()})
-                else:
-                    model.load_state_dict({k if 'module.' in k else 'module.'+k: v for k, v in data[key].items()})
-                logger.info('optimizer.load_state_dict+')
-                optimizer.load_state_dict(data['optimizer'])
-                if data['epoch'] < C.get()['epoch']:
-                    epoch_start = data['epoch']
-                else:
-                    only_eval = True
-                if ema is not None:
-                    ema.shadow = data.get('ema', {}) if isinstance(data.get('ema', {}), dict) else data['ema'].state_dict()
-            del data
+        logger.info('%s file found. loading...' % save_path)
+        data = torch.load(save_path)
+        key = 'model' if 'model' in data else 'state_dict'
+
+        if 'epoch' not in data:
+            model.load_state_dict(data)
         else:
-            logger.info('"%s" file not found. skip to pretrain weights...' % save_path)
-            if only_eval:
-                logger.warning('model checkpoint not found. only-evaluation mode is off.')
-            only_eval = False
+            logger.info('checkpoint epoch@%d' % data['epoch'])
+            if not isinstance(model, (DataParallel, DistributedDataParallel)):
+                model.load_state_dict({k.replace('module.', ''): v for k, v in data[key].items()})
+            else:
+                model.load_state_dict({k if 'module.' in k else 'module.'+k: v for k, v in data[key].items()})
+            logger.info('optimizer.load_state_dict+')
+            optimizer.load_state_dict(data['optimizer'])
+            if data['epoch'] < C.get()['epoch']:
+                epoch_start = data['epoch']
+            else:
+                only_eval = True
+            if ema is not None:
+                ema.shadow = data.get('ema', {}) if isinstance(data.get('ema', {}), dict) else data['ema'].state_dict()
+        del data
 
     if local_rank >= 0:
         for name, x in model.state_dict().items():

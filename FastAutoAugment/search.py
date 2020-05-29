@@ -170,9 +170,9 @@ if __name__ == '__main__':
     logger.info(json.dumps(C.get().conf, sort_keys=True, indent=4))
     logger.info('initialize ray...')
     # ray.init(address=args.redis)
-    # ray.init()
+    ray.init(num_cpus=1, num_gpus=1)
 
-    num_result_per_cv = 10
+    num_result_per_cv = 10 if not args.smoke_test else 2
     cv_num = 5
     copied_c = copy.deepcopy(C.get().conf)
 
@@ -272,7 +272,7 @@ if __name__ == '__main__':
                 'num_op': args.num_op, 'num_policy': args.num_policy
             }
             num_samples = 4 if args.smoke_test else args.num_search
-            ray.init(num_cpus=1, num_gpus=1)
+
             print(aug_config)
             results = run(eval_t, search_alg=algo, config=aug_config, num_samples=num_samples, resources_per_trial={'gpu': 1}, stop={'training_iteration': args.num_policy})
 
