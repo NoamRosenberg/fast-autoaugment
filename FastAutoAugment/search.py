@@ -309,10 +309,11 @@ if __name__ == '__main__':
                     for _ in range(num_experiments)]
     augment_path = [_get_path(C.get()['dataset'], C.get()['model']['type'], 'ratio%.1f_augment%d' % (args.cv_ratio, _))
                     for _ in range(num_experiments)]
-    reqs = [train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0,
-                               save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
-           [train_model.remote(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0,
-                               save_path=augment_path[_]) for _ in range(num_experiments)]
+    # reqs = [train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0,
+    #                            save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
+    #        [train_model.remote(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0,
+    #                            save_path=augment_path[_]) for _ in range(num_experiments)]
+
 
     tqdm_epoch = tqdm(range(C.get()['epoch']))
     is_done = False
@@ -343,7 +344,11 @@ if __name__ == '__main__':
             break
 
     logger.info('getting results...')
-    final_results = ray.get(reqs)
+    # final_results = ray.get(reqs)
+    final_results = [train_model(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0,
+                               save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
+           [train_model(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0,
+                               save_path=augment_path[_]) for _ in range(num_experiments)]
 
     for train_mode in ['default', 'augment']:
         avg = 0.
