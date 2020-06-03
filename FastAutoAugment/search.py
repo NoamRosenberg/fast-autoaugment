@@ -324,13 +324,19 @@ if __name__ == '__main__':
                 try:
                     if os.path.exists(default_path[exp_idx]):
                         latest_ckpt = torch.load(default_path[exp_idx])
-                        epochs['default_exp%d' % (exp_idx + 1)] = latest_ckpt['epoch']
-                except:
+                        if 'epoch' not in latest_ckpt:
+                            epochs['default_exp%d' % (exp_idx + 1)] = C.get()['epoch']
+                        else:
+                            epochs['default_exp%d' % (exp_idx + 1)] = latest_ckpt['epoch']
+                except Exception as e:
                     pass
                 try:
                     if os.path.exists(augment_path[exp_idx]):
                         latest_ckpt = torch.load(augment_path[exp_idx])
-                        epochs['augment_exp%d' % (exp_idx + 1)] = latest_ckpt['epoch']
+                        if 'epoch' not in latest_ckpt:
+                            epochs['augment_exp%d' % (exp_idx + 1)] = C.get()['epoch']
+                        else:
+                            epochs['augment_exp%d' % (exp_idx + 1)] = latest_ckpt['epoch']
                 except:
                     pass
 

@@ -192,10 +192,9 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
     if save_path != 'test.pth':     # and is_master: --> should load all data(not able to be broadcasted)
         if save_path and not os.path.exists(save_path):
             import torch.utils.model_zoo as model_zoo
-            model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth',
+            data = model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth',
                                model_dir=os.path.join(os.getcwd(), 'FastAutoAugment/models'))
             if C.get()['dataset'] == 'cifar10':
-                data = torch.load(save_path)
                 data.pop('fc.weight')
                 data.pop('fc.bias')
                 model_dict = model.state_dict()
