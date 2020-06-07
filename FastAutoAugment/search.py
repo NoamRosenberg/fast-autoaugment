@@ -169,7 +169,6 @@ if __name__ == '__main__':
     logger.info('configuration...')
     logger.info(json.dumps(C.get().conf, sort_keys=True, indent=4))
     logger.info('initialize ray...')
-    # ray.init(address=args.redis)
     ray.init(num_cpus=1, num_gpus=1)
 
     num_result_per_cv = 10 if not args.smoke_test else 2
@@ -182,10 +181,6 @@ if __name__ == '__main__':
     paths = [_get_path(C.get()['dataset'], C.get()['model']['type'], 'ratio%.1f_fold%d' % (args.cv_ratio, i)) for i in
              range(cv_num)]
     print(paths)
-    # reqs = [
-    #     train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], args.cv_ratio, i, save_path=paths[i], skip_exist=True)
-    #     for i in range(cv_num)]
-
     tqdm_epoch = tqdm(range(C.get()['epoch']))
     is_done = False
     for epoch in tqdm_epoch:
@@ -210,7 +205,6 @@ if __name__ == '__main__':
             break
 
     logger.info('getting results...')
-    # pretrain_results = ray.get(reqs)
     pretrain_results = [
         train_model(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], args.cv_ratio, i, save_path=paths[i],
                     skip_exist=True) for i in range(cv_num)]
@@ -246,26 +240,7 @@ if __name__ == '__main__':
             name = "search_%s_%s_fold%d_ratio%.1f" % (
             C.get()['dataset'], C.get()['model']['type'], cv_fold, args.cv_ratio)
             print(name)
-            # register_trainable(name, lambda augs, rpt: eval_tta(copy.deepcopy(copied_c), augs, rpt))
-            # algo = HyperOptSearch(space, max_concurrent=4 * 20, reward_attr=reward_attr)
             algo = HyperOptSearch(space, max_concurrent=1, metric=reward_attr)
-            #
-            # exp_config = {
-            #     name: {
-            #         'run': name,
-            #         'num_samples': 4 if args.smoke_test else args.num_search,
-            #         'resources_per_trial': {'gpu': 1},
-            #         'stop': {'training_iteration': args.num_policy},
-            #         'config': {
-            #             'dataroot': args.dataroot, 'save_path': paths[cv_fold],
-            #             'cv_ratio_test': args.cv_ratio, 'cv_fold': cv_fold,
-            #             'num_op': args.num_op, 'num_policy': args.num_policy
-            #         },
-            #     }
-            # }
-            # results = run_experiments(exp_config, search_alg=algo, scheduler=None, verbose=0, queue_trials=True,
-            #                           resume=args.resume, raise_on_failed_trial=False)
-
             aug_config = {
                 'dataroot': args.dataroot, 'save_path': paths[cv_fold],
                 'cv_ratio_test': args.cv_ratio, 'cv_fold': cv_fold,
@@ -275,15 +250,8 @@ if __name__ == '__main__':
 
             print(aug_config)
             results = run(eval_t, search_alg=algo, config=aug_config, num_samples=num_samples, resources_per_trial={'gpu': 1}, stop={'training_iteration': args.num_policy})
-
-            # results = [x for x in results if x.last_result is not None]
-            # results = sorted(results, key=lambda x: x.last_result[reward_attr], reverse=True)
             dataframe = results.dataframe().sort_values(reward_attr, ascending=False)
             total_computation = dataframe['elapsed_time'].sum()
-            # calculate computation usage
-            # for result in results:
-            #     total_computation += result.last_result['elapsed_time']
-
             for i in range(num_result_per_cv):
                 config_dict = dataframe.loc[i].filter(like='config').to_dict()
                 new_keys = [x.replace('config/', '') for x in config_dict.keys()]
@@ -309,12 +277,6 @@ if __name__ == '__main__':
                     for _ in range(num_experiments)]
     augment_path = [_get_path(C.get()['dataset'], C.get()['model']['type'], 'ratio%.1f_augment%d' % (args.cv_ratio, _))
                     for _ in range(num_experiments)]
-    # reqs = [train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0,
-    #                            save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
-    #        [train_model.remote(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0,
-    #                            save_path=augment_path[_]) for _ in range(num_experiments)]
-
-
     tqdm_epoch = tqdm(range(C.get()['epoch']))
     is_done = False
     for epoch in tqdm_epoch:
@@ -350,7 +312,6 @@ if __name__ == '__main__':
             break
 
     logger.info('getting results...')
-    # final_results = ray.get(reqs)
     final_results = [train_model(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0,
                                save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
            [train_model(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0,

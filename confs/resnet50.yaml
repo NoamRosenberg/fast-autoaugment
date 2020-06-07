@@ -1,7 +1,7 @@
 model:
   type: resnet50
 dataset: cifar10
-aug: fa_reduced_imagenet
+aug: fa_reduced_cifar10
 cutout: 0
 batch: 128
 epoch: 270
